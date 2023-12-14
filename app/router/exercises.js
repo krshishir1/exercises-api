@@ -3,6 +3,7 @@ const router = express.Router();
 
 const exerciseController = require("../controllers/exerciseController");
 
-router.get("/", exerciseController.sayHello);
+router.get("/finder/:index", exerciseController.extract_exercies);
+router.get("/info", exerciseController.exercise_info)
 
 module.exports = router;
