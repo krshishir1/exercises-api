@@ -1,5 +1,6 @@
 const axios = require("axios")
 const cheerio = require("cheerio")
+const Joi = require("joi")
 
 const exerciseUrl = "https://www.bodybuilding.com/exercises/"
 const axiosInstance = axios.create({
@@ -15,6 +16,14 @@ const extract_exercies = async (req, res) => {
 
         const pageIndex = req.params.index
 
+        const schema = Joi.object({
+            muscle: Joi.string().required().trim(false),
+        })
+
+        const {error} = schema.validate(req.query)
+
+        if(error) throw new Error(error.message)
+
         const {status, data} = await axiosInstance.get(`/finder/${pageIndex}`, {
             params: req.query
         })
@@ -29,7 +38,7 @@ const extract_exercies = async (req, res) => {
             })
         })
 
-        res.status(200).json({message: "Everything is working!", list: exerciseList})
+        res.status(200).json({results: exerciseList})
 
     } catch(err) {
         console.log(err.message)
@@ -45,6 +54,21 @@ const exercise_info = async (req, res) => {
 
         const $ = cheerio.load(data)
         const block = $(".ExDetail")
+
+        const details = {muscle: "", type: "", equipment: "", level: ""}
+
+        const detailCon = block.find(`.ExDetail-section ul.bb-list--plain`).first()
+        detailCon.find("li").each((i, el) => {
+
+            if(i === 0) details.type = $(el).find("a").text().trim().toLowerCase()
+            else if(i === 1) details.muscle = $(el).find("a").text().trim().toLowerCase()
+            else if(i === 2) details.equipment = $(el).find("a").text().trim().toLowerCase()
+            else if(i === 3) {
+                details.level = $(el).text().replace(/Level:/g, "").replace(/\s+/g, " ").trim().toLowerCase()
+            }
+
+        })
+
 
         let desc = block.find(".ExDetail-shortDescription p").first().text().trim()
         let benefits = []
@@ -68,11 +92,11 @@ const exercise_info = async (req, res) => {
             instruction.push({index: i + 1, guide: guideText})
         })
 
-        const details = {description: desc, benefits, images, postureImg, instruction}
+        const info = {details, description: desc, benefits, images, postureImg, instruction}
 
         // console.log(text)
 
-        res.status(200).json({...details})
+        res.status(200).json({...info})
 
     } catch(err) {
         console.log(err.message)
