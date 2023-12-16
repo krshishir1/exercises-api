@@ -50,6 +50,8 @@ const extract_exercies = async (req, res) => {
 const exercise_info = async (req, res) => {
     try {
 
+        console.log(req.query.slug)
+
         const {data} = await axiosInstance.get(`/${req.query.slug}`)
 
         const $ = cheerio.load(data)
