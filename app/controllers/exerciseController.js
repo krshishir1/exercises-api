@@ -10,17 +10,6 @@ const axiosInstance = axios.create({
     }
 })
 
-const download_image = async (url, filename) => {
-    try {
-        const writeStream = fs.createWriteStream(filename)
-        const {data} = await axios.get(url, {responseType: "stream"})
-        console.log(data)
-    } catch(err) {
-        console.log(err.message)
-    }
-}
-
-
 const extract_exercies = async (req, res) => {
     try {
 
@@ -59,9 +48,6 @@ const extract_exercies = async (req, res) => {
 
 const exercise_info = async (req, res) => {
     try {
-
-        console.log(req.query.slug)
-
         const {data} = await axiosInstance.get(`/${req.query.slug}`)
 
         const $ = cheerio.load(data)
@@ -128,7 +114,6 @@ const exercise_info = async (req, res) => {
         Object.keys(info).forEach(key => {
             if(info[key] === false) delete info[key]
         })
-        // console.log(text)
 
         res.status(200).json({...info})
 

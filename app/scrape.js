@@ -1,7 +1,7 @@
+// This file is used to scrape data from the website and store it in the database
+
 const axios = require("axios");
 const fs = require("fs");
-const { stringify } = require("csv-stringify");
-const { parse } = require("csv-parse");
 const mongoose = require("mongoose");
 
 const ExerciseModel = require("./models/exerciseModel");
@@ -9,13 +9,9 @@ const Jimp = require("jimp");
 
 require("dotenv").config();
 
-const fileName = "data/exercises-list.csv";
-
 const axiosInstance = axios.create({
   baseURL: "http://127.0.0.1:4500/exercises/",
 });
-
-// const getData  =
 
 const getExercisesData = async function () {
   try {
@@ -209,12 +205,8 @@ mongoose
   .connect(process.env.DATABASE_URI)
   .then(() => {
     console.log("Connected to database");
-    getExeciseInfo();
-    // queryDataBase();
+    // getExeciseInfo();
+    queryDataBase();
     // getExercisesData();
   })
   .catch((err) => console.log(err.message));
-
-// readExercisesData();
-
-// getExercisesData()
