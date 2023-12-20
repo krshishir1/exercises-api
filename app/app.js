@@ -6,6 +6,8 @@ const mongoose = require("mongoose");
 
 const exerciseRouter = require("./router/exercises");
 
+app.use(express.static("static"));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

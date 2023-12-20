@@ -10,6 +10,16 @@ const axiosInstance = axios.create({
     }
 })
 
+const download_image = async (url, filename) => {
+    try {
+        const writeStream = fs.createWriteStream(filename)
+        const {data} = await axios.get(url, {responseType: "stream"})
+        console.log(data)
+    } catch(err) {
+        console.log(err.message)
+    }
+}
+
 
 const extract_exercies = async (req, res) => {
     try {
@@ -57,22 +67,31 @@ const exercise_info = async (req, res) => {
         const $ = cheerio.load(data)
         const block = $(".ExDetail")
 
-        const details = {muscle: "", type: "", equipment: "", level: ""}
+        const details = {type: false, muscle: false, equipment: false, level: false}
 
         const detailCon = block.find(`.ExDetail-section ul.bb-list--plain`).first()
         detailCon.find("li").each((i, el) => {
 
-            if(i === 0) details.type = $(el).find("a").text().trim().toLowerCase()
-            else if(i === 1) details.muscle = $(el).find("a").text().trim().toLowerCase()
-            else if(i === 2) details.equipment = $(el).find("a").text().trim().toLowerCase()
-            else if(i === 3) {
-                details.level = $(el).text().replace(/Level:/g, "").replace(/\s+/g, " ").trim().toLowerCase()
-            }
+            let innerText = $(el).text().toLowerCase()
+
+            if(innerText.includes("type")) details.type = $(el).find("a").text().trim().toLowerCase()
+            if(innerText.includes("muscle")) details.muscle = $(el).find("a").text().trim().toLowerCase()
+            if(innerText.includes("equipment")) details.equipment = $(el).find("a").text().trim().toLowerCase()
+            if(innerText.includes("level")) details.level = innerText.replace(/level:/g, "").replace(/\s+/g, " ").trim().toLowerCase()
+
+            // if(i === 0) details.type = $(el).find("a").text().trim().toLowerCase()
+            // else if(i === 1) details.muscle = $(el).find("a").text().trim().toLowerCase()
+            // else if(i === 2) details.equipment = $(el).find("a").text().trim().toLowerCase()
+            // else if(i === 3) {
+            //     details.level = $(el).text().replace(/Level:/g, "").replace(/\s+/g, " ").trim().toLowerCase()
+            // }
 
         })
 
 
-        let desc = block.find(".ExDetail-shortDescription p").first().text().trim()
+        let desc = block.find(".ExDetail-shortDescription p").first().text().trim();
+        if(desc == "") desc = false;
+
         let benefits = []
 
         block.find(".ExDetail-benefits ol li").each((i, el) => {
@@ -86,7 +105,7 @@ const exercise_info = async (req, res) => {
             images.push(imageSrc)
         })
 
-        const postureImg = block.find(`.ExDetail-guide img.ExImg`).first().attr("src")
+        const postureImg = block.find(`.ExDetail-guide img.ExImg`).first().attr("src") || false
 
         const instruction = []
         block.find(`.ExDetail-guide [itemprop="description"] ol li`).each((i, el) => {
@@ -94,8 +113,21 @@ const exercise_info = async (req, res) => {
             instruction.push({index: i + 1, guide: guideText})
         })
 
-        const info = {details, description: desc, benefits, images, postureImg, instruction}
+        Object.keys(details).forEach(key => {
+            if(details[key] === false) delete details[key]
+        })
 
+        let info = {details, 
+            description: desc, 
+            benefits: benefits.length > 0 ? benefits : false, 
+            instruction: instruction.length > 0 ? instruction : false,
+            images: images.length > 0 ? images : false, 
+            postureImg, 
+        }
+
+        Object.keys(info).forEach(key => {
+            if(info[key] === false) delete info[key]
+        })
         // console.log(text)
 
         res.status(200).json({...info})

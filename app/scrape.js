@@ -2,6 +2,12 @@ const axios = require("axios");
 const fs = require("fs");
 const { stringify } = require("csv-stringify");
 const { parse } = require("csv-parse");
+const mongoose = require("mongoose");
+
+const ExerciseModel = require("./models/exerciseModel");
+const Jimp = require("jimp");
+
+require("dotenv").config();
 
 const fileName = "data/exercises-list.csv";
 
@@ -13,16 +19,7 @@ const axiosInstance = axios.create({
 
 const getExercisesData = async function () {
   try {
-    const writableStream = fs.createWriteStream(fileName);
-    const columns = ["name", "slug"];
-    const stringifier = stringify({ header: true, columns });
-
-    stringifier.pipe(writableStream);
-
     const totalPages = 500;
-
-    const exerciseList = [];
-
     const muscleTypes = [
       "chest",
       "forearms",
@@ -45,99 +42,179 @@ const getExercisesData = async function () {
 
     const loopPages = async function (muscleType) {
       for (let i = 1; i <= totalPages; i++) {
-        console.log(`Getting exercises from ${muscleType} page ${i}`);
+        try {
+          console.log(`Getting exercises from ${muscleType} page ${i}`);
 
-        const { status, data } = await axiosInstance.get(`/finder/${i}`, {
-          params: {
-            muscle: muscleType,
-          },
-        });
+          const exerciseList = [];
 
-        if (data.results.length === 0) {
-          console.log(`No more exercises found: page ${i} type ${muscleType}`);
-          break;
-        }
-
-        if (Array.isArray(data.results)) {
-          data.results.forEach((el) => {
-            if (!exerciseList.includes(el)) {
-              exerciseList.push(el);
-              stringifier.write(el);
-            } else {
-              console.log("Duplicate found: ", el.name, i);
-            }
+          const { status, data } = await axiosInstance.get(`/finder/${i}`, {
+            params: {
+              muscle: muscleType,
+            },
           });
+
+          if (data.results.length === 0) {
+            console.log(
+              `No more exercises found: page ${i} type ${muscleType}`
+            );
+            break;
+          }
+
+          if (Array.isArray(data.results)) {
+            data.results.forEach((el) => {
+              if (!exerciseList.includes(el)) {
+                exerciseList.push({...el, muscle: muscleType});
+              } else {
+                console.log("Duplicate found: ", el.name, i);
+              }
+            });
+          }
+
+          // console.log(exerciseList);
+
+          const response = await ExerciseModel.insertMany(exerciseList);
+          // console.log(response);
+        } catch (err) {
+          console.log(err.message);
         }
       }
     };
 
-    muscleTypes.forEach((muscleType) => loopPages(muscleType));
+    muscleTypes.forEach(async (muscleType, index) => {
+      if (index == 1) {
+        await loopPages(muscleType);
+      }
+    });
   } catch (err) {
     console.log(err);
   }
 };
 
-const readExercisesData = async function () {
+
+const getExeciseInfo = async function () {
   try {
-    const filename = "data/exercises1.csv";
-    const exercises = [];
-    fs.createReadStream(filename)
-      .pipe(parse({ delimiter: ",", from_line: 2 }))
-      .on("data", (row) => {
-        if (exercises.indexOf(row) === -1) {
-          exercises.push(row);
-        } else console.log("Duplicate found: ", row);
-      })
-      .on("end", () => {
-        console.log("Done reading file");
-        // console.log(`Number of exercises found: ${exercises.length}`)
-
-        getExeciseInfo(exercises);
-      });
-  } catch (err) {
-    console.log(err.message);
-  }
-};
-
-const getExeciseInfo = async function (exercises) {
-  try {
-    const filename = "data/exercises-list.csv"
-    const writableStream = fs.createWriteStream(filename);
-    const columns = ["name", "slug", "type", "muscle", "equipment", "level"];
-    const stringifier = stringify({ header: true, columns });
-
-    stringifier.pipe(writableStream);
-
     let startIndex = 0;
-    let endIndex = exercises.length;
-    
 
-    for (let i = startIndex; i < endIndex; i++) {
+    const results = await ExerciseModel.find({ slug: { $regex: /^\w/g }, muscle: "forearms" }).sort({
+      slug: 1,
+    });
+
+    const download_image = async (imgUrl, filename) => {
       try {
-        let name = exercises[i][0];
-        let slug = exercises[i][1];
+        // Check if file exists
+        const fileExists = fs.existsSync(filename)
+        const quality = 90
 
-        const {data} = await axiosInstance.get("/info", {
-          params: {
-            slug,
-          },
+        if(fileExists) {
+          console.log(`File ${filename} already exists`)
+          return true
+        }
+
+        const image = await Jimp.read(imgUrl);
+
+        let width = image.bitmap.width;
+        let height = image.bitmap.height;
+
+        const ratio = width / height;
+
+        if (ratio >= 1) {
+          await image.resize(600, Jimp.AUTO).quality(quality).write(filename);
+        } else {
+          await image.resize(Jimp.AUTO, 600).quality(quality).write(filename);
+        }
+
+        console.log(`Image ${filename} downloaded`);
+
+        return true;
+      } catch (err) {
+        console.log(`Error: ${filename} ${err}`)
+
+        return false;
+      }
+    };
+
+    console.log(`Got ${results.length} exercises`)
+
+    for (let i = 0; i < results.length; i++) {
+      try {
+        const { name, slug } = results[i];
+        const { data } = await axiosInstance.get(`/info/`, {
+          params: { slug },
         });
 
-        const {type, muscle, equipment, level} = data.details
-        console.log(`Exercise ${i} ${name}: ${type}, ${muscle}, ${equipment}, ${level}`)  
-        
-        stringifier.write({name, slug, type, muscle, equipment, level})
+        const imageUrls = []
+
+        fs.readdirSync("./static/images").forEach((file) => {
+          if (file.includes(slug)) {
+            imageUrls.push(file)
+          }
+        })
+
+        const { details, benefits, description, instruction, images } = data;
+
+        const updateObj = { details, benefits, description, instruction, 
+          images: imageUrls.length ? imageUrls : undefined };
+
+        Object.keys(updateObj).forEach((key) => {
+          if (updateObj[key] === undefined) {
+            delete updateObj[key];
+          }
+        });
+
+        // console.log(`${i + 1}) ${slug}`, updateObj);
+
+        // if (!imageUrls.length) {
+        //   images.forEach(async (imgUrl, index) => {
+        //     let filename = `./static/images/${slug}-${index + 1}.jpg`;
+
+        //     let result = await download_image(imgUrl, filename);
+        //     if (!result) {
+        //       console.log(`Trying again: ${filename}`)
+        //       await download_image(imgUrl, filename);
+        //     }
+        //   });
+        // } else console.log(`No images found for ${slug}`);
+
+
+        const result = await ExerciseModel.updateOne({slug}, {
+          $set: {
+            ...updateObj
+          }
+        })
+
+        console.log(`${i + 1}) ${slug}`, result)
       } catch (err) {
-        console.log(
-          `Error fetching ${exercises[i]} index: ${i} error: ${err.message}`
-        );
+        console.log(err.message);
       }
     }
+
+    console.log("Done getting exercise info");
   } catch (err) {
     console.log(err.message);
   }
 };
 
-readExercisesData();
+const queryDataBase = async function () {
+  try {
+    const results = await ExerciseModel.find({ slug: { $regex: "^c" } }).sort({
+      slug: 1,
+    });
+    console.log(results);
+  } catch (err) {
+    console.log(err.message);
+  }
+};
+
+mongoose
+  .connect(process.env.DATABASE_URI)
+  .then(() => {
+    console.log("Connected to database");
+    getExeciseInfo();
+    // queryDataBase();
+    // getExercisesData();
+  })
+  .catch((err) => console.log(err.message));
+
+// readExercisesData();
 
 // getExercisesData()
