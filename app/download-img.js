@@ -57,8 +57,9 @@ const download = async function (inputMuscleType) {
     console.log(`Got ${results.length} exercises`);
 
     for (let i = 0; i < results.length; i++) {
+      const { slug } = results[i];
+
       try {
-        const { slug } = results[i];
         const { data } = await axiosInstance.get(`/info/`, {
           params: { slug },
         });
@@ -79,7 +80,7 @@ const download = async function (inputMuscleType) {
           });
         } else console.log(`No images found for ${slug}`);
       } catch (err) {
-        console.log(err.message);
+        console.log(`${err.message} for ${slug}`);
       }
     }
 
