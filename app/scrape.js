@@ -161,10 +161,10 @@ mongoose
 
     const muscleType = yargs.argv.muscle;
     if(muscleType) {
-      setExercisesData(muscleType);
-      // setExerciseInfo(muscleType);
+      // setExercisesData(muscleType);
+      setExerciseInfo(muscleType);
     }
-    
+
     // setExerciseInfo("chest");
   })
   .catch((err) => console.log(err.message));
