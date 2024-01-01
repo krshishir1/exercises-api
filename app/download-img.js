@@ -13,8 +13,6 @@ const axiosInstance = axios.create({
 
 const download = async function (inputMuscleType) {
   try {
-    let startIndex = 0;
-
     const results = await ExerciseModel.find({
       slug: { $regex: /^\w/g },
       muscle: inputMuscleType,
