@@ -5,6 +5,7 @@ require("dotenv").config();
 const axios = require("axios");
 const Jimp = require("jimp");
 const fs = require("fs");
+const yargs = require("yargs");
 
 const axiosInstance = axios.create({
   baseURL: "http://localhost:4500/exercises/",
@@ -94,6 +95,10 @@ mongoose
   .connect(process.env.DATABASE_URI)
   .then(() => {
     console.log("Connected to database");
-    download("lats");
+    const muscleType = yargs.argv.muscle;
+
+    if(muscleType) {
+        download(muscleType);
+    }
   })
   .catch((err) => console.log(err.message));

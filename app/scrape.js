@@ -3,6 +3,7 @@
 const axios = require("axios");
 const fs = require("fs");
 const mongoose = require("mongoose");
+const yargs = require("yargs");
 
 const ExerciseModel = require("./models/exerciseModel");
 
@@ -157,8 +158,13 @@ mongoose
   .connect(process.env.DATABASE_URI)
   .then(() => {
     console.log("Connected to database");
-    setExercisesData("lats");
 
+    const muscleType = yargs.argv.muscle;
+    if(muscleType) {
+      setExercisesData(muscleType);
+      // setExerciseInfo(muscleType);
+    }
+    
     // setExerciseInfo("chest");
   })
   .catch((err) => console.log(err.message));
