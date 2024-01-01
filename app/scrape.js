@@ -5,15 +5,14 @@ const fs = require("fs");
 const mongoose = require("mongoose");
 
 const ExerciseModel = require("./models/exerciseModel");
-const Jimp = require("jimp");
 
 require("dotenv").config();
 
 const axiosInstance = axios.create({
-  baseURL: "http://127.0.0.1:4500/exercises/",
+  baseURL: "http://localhost:4500/exercises/",
 });
 
-const getExercisesData = async function () {
+const setExercisesData = async function (inputMuscleType) {
   try {
     const totalPages = 500;
     const muscleTypes = [
@@ -69,15 +68,15 @@ const getExercisesData = async function () {
           // console.log(exerciseList);
 
           const response = await ExerciseModel.insertMany(exerciseList);
-          // console.log(response);
+          console.log(response);
         } catch (err) {
           console.log(err.message);
         }
       }
     };
 
-    muscleTypes.forEach(async (muscleType, index) => {
-      if (index == 1) {
+    muscleTypes.forEach(async (muscleType) => {
+      if (muscleType === inputMuscleType) {
         await loopPages(muscleType);
       }
     });
@@ -87,53 +86,19 @@ const getExercisesData = async function () {
 };
 
 
-const getExeciseInfo = async function () {
+const setExerciseInfo = async function (inputMuscleType) {
   try {
     let startIndex = 0;
 
-    const results = await ExerciseModel.find({ slug: { $regex: /^\w/g }, muscle: "forearms" }).sort({
+    const results = await ExerciseModel.find({ slug: { $regex: /^\w/g }, muscle: inputMuscleType }).sort({
       slug: 1,
     });
-
-    const download_image = async (imgUrl, filename) => {
-      try {
-        // Check if file exists
-        const fileExists = fs.existsSync(filename)
-        const quality = 90
-
-        if(fileExists) {
-          console.log(`File ${filename} already exists`)
-          return true
-        }
-
-        const image = await Jimp.read(imgUrl);
-
-        let width = image.bitmap.width;
-        let height = image.bitmap.height;
-
-        const ratio = width / height;
-
-        if (ratio >= 1) {
-          await image.resize(600, Jimp.AUTO).quality(quality).write(filename);
-        } else {
-          await image.resize(Jimp.AUTO, 600).quality(quality).write(filename);
-        }
-
-        console.log(`Image ${filename} downloaded`);
-
-        return true;
-      } catch (err) {
-        console.log(`Error: ${filename} ${err}`)
-
-        return false;
-      }
-    };
 
     console.log(`Got ${results.length} exercises`)
 
     for (let i = 0; i < results.length; i++) {
       try {
-        const { name, slug } = results[i];
+        const { slug } = results[i];
         const { data } = await axiosInstance.get(`/info/`, {
           params: { slug },
         });
@@ -141,12 +106,13 @@ const getExeciseInfo = async function () {
         const imageUrls = []
 
         fs.readdirSync("./static/images").forEach((file) => {
-          if (file.includes(slug)) {
+          const newSlug = file.replace(/.jpg/g, "").replace(/-\d$/g, "")
+          if (newSlug === slug) {
             imageUrls.push(file)
           }
         })
 
-        const { details, benefits, description, instruction, images } = data;
+        const { details, benefits, description, instruction } = data;
 
         const updateObj = { details, benefits, description, instruction, 
           images: imageUrls.length ? imageUrls : undefined };
@@ -156,20 +122,6 @@ const getExeciseInfo = async function () {
             delete updateObj[key];
           }
         });
-
-        // console.log(`${i + 1}) ${slug}`, updateObj);
-
-        // if (!imageUrls.length) {
-        //   images.forEach(async (imgUrl, index) => {
-        //     let filename = `./static/images/${slug}-${index + 1}.jpg`;
-
-        //     let result = await download_image(imgUrl, filename);
-        //     if (!result) {
-        //       console.log(`Trying again: ${filename}`)
-        //       await download_image(imgUrl, filename);
-        //     }
-        //   });
-        // } else console.log(`No images found for ${slug}`);
 
 
         const result = await ExerciseModel.updateOne({slug}, {
@@ -205,8 +157,8 @@ mongoose
   .connect(process.env.DATABASE_URI)
   .then(() => {
     console.log("Connected to database");
-    // getExeciseInfo();
-    queryDataBase();
-    // getExercisesData();
+    setExercisesData("lats");
+
+    // setExerciseInfo("chest");
   })
   .catch((err) => console.log(err.message));
