@@ -8,7 +8,7 @@ const fs = require("fs");
 const yargs = require("yargs");
 
 const axiosInstance = axios.create({
-  baseURL: "http://localhost:4500/exercises/",
+  baseURL: `${process.env.WEBSITE_URL}/exercises/`,
 });
 
 const download = async function (inputMuscleType) {

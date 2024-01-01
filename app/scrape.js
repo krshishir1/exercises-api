@@ -10,7 +10,7 @@ const ExerciseModel = require("./models/exerciseModel");
 require("dotenv").config();
 
 const axiosInstance = axios.create({
-  baseURL: "http://localhost:4500/exercises/",
+  baseURL: `${process.env.WEBSITE_URL}/exercises/`,
 });
 
 const setExercisesData = async function (inputMuscleType) {
