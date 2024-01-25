@@ -11,7 +11,7 @@ const axiosInstance = axios.create({
   baseURL: `${process.env.WEBSITE_URL}/exercises/`,
 });
 
-const download = async function (inputMuscleType) {
+const download = async function (inputMuscleType, startIndex) {
   try {
     const results = await ExerciseModel.find({
       slug: { $regex: /^\w/g },
@@ -56,7 +56,7 @@ const download = async function (inputMuscleType) {
 
     console.log(`Got ${results.length} exercises`);
 
-    for (let i = 0; i < results.length; i++) {
+    for (let i = startIndex; i < results.length; i++) {
       const { slug } = results[i];
 
       try {
@@ -94,10 +94,14 @@ mongoose
   .connect(process.env.DATABASE_URI)
   .then(() => {
     console.log("Connected to database");
+
     const muscleType = yargs.argv.muscle;
+    const startIndex = yargs.argv.start || 0;
+
+    console.log(muscleType, startIndex);
 
     if(muscleType) {
-        download(muscleType);
+        download(muscleType, Number(startIndex));
     }
   })
   .catch((err) => console.log(err.message));
